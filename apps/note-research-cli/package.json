@@ -16,7 +16,6 @@
     "@note-research/note-core"
   ],
   "scripts": {
-    "prebuild": "npm install",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "npm run typecheck",
