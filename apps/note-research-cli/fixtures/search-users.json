@@ -1,0 +1,14 @@
+{
+  "data": {
+    "users": [
+      {
+        "urlname": "alpha",
+        "name": "Alpha User"
+      },
+      {
+        "urlname": "beta",
+        "name": "Beta User"
+      }
+    ]
+  }
+}

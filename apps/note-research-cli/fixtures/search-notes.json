@@ -1,0 +1,54 @@
+{
+  "data": {
+    "notes": [
+      {
+        "id": "n001",
+        "name": "AI活用の入門ガイド",
+        "likeCount": 120,
+        "commentsCount": 12,
+        "body": "How toで始めるAI活用の手順を紹介します",
+        "user": { "urlname": "alpha" }
+      },
+      {
+        "id": "n002",
+        "name": "生成AIツール比較 2026",
+        "likeCount": 80,
+        "commentsCount": 8,
+        "body": "主要ツールの比較と選び方",
+        "user": { "urlname": "beta" }
+      },
+      {
+        "id": "n003",
+        "name": "導入事例: AIで工数を30%削減",
+        "likeCount": 95,
+        "commentsCount": 6,
+        "body": "実例とケーススタディを解説",
+        "user": { "urlname": "gamma" }
+      },
+      {
+        "id": "n004",
+        "name": "AI記事作成のコツまとめ",
+        "likeCount": 60,
+        "commentsCount": 4,
+        "body": "ランキング形式でポイントを整理",
+        "user": { "urlname": "alpha" }
+      },
+      {
+        "id": "n005",
+        "name": "私のAI運用に関する考察",
+        "likeCount": 40,
+        "commentsCount": 2,
+        "body": "個人的なレビューと所感",
+        "user": { "urlname": "beta" }
+      },
+      {
+        "id": "n006",
+        "name": "AI活用の失敗と改善メモ",
+        "likeCount": 20,
+        "commentsCount": 1,
+        "body": "反省点のメモ",
+        "user": { "urlname": "delta" }
+      }
+    ]
+  }
+}

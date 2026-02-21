@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.vendor/
+*.tgz
+*.sha256
+.env
+.env.*
+!.env.sample

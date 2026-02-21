@@ -1,0 +1,14 @@
+{
+  "data": {
+    "note": {
+      "id": "n001",
+      "name": "AI活用の入門ガイド",
+      "body": "<p>本文</p>",
+      "likeCount": 120,
+      "commentsCount": 12,
+      "user": {
+        "urlname": "alpha"
+      }
+    }
+  }
+}

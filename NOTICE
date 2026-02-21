@@ -1,0 +1,19 @@
+# NOTICE
+
+This project includes code derived from an open-source project:
+
+- Project: `note-com-mcp`
+- Repository: `https://github.com/shimayuz/note-com-mcp`
+- Copyright: Original contributors
+- License: MIT
+
+## What was changed
+
+- Extracted CLI-focused components for research and drafting workflows
+- Isolated `note-research-cli` and `note-core` layers
+- Added packaging and release docs for standalone distribution
+- Added tests and operational guardrails for non-official API usage
+
+## Attribution
+
+Thanks to the original maintainers and contributors for the base implementation.

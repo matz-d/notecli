@@ -1,0 +1,380 @@
+#!/usr/bin/env node
+import "dotenv/config";
+import { Command } from "commander";
+import {
+  NoteApiClient,
+  authHelpMessage,
+  hasAuth,
+  loadAuthState,
+  maskSecret,
+  normalizeSessionCookie,
+  saveAuthState,
+} from "@note-research/note-core";
+import {
+  analyzeCompetitors,
+  diffMineVsCompetitors,
+  discoverCompetitors,
+  normalizeNotes,
+} from "./analysis/competitor.js";
+import {
+  markdownToHtml,
+  printJson,
+  printMarkdown,
+  printResult,
+  readBody,
+  type CliFormat,
+} from "./output/formatters.js";
+
+const program = new Command();
+program.name("note-research").description("note競合調査CLI（下書き作成/更新まで対応）");
+
+function getClient() {
+  return new NoteApiClient(loadAuthState());
+}
+
+function handleError(error: unknown): never {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes("AUTH_REQUIRED") || message.includes("AUTH_FAILED")) {
+    console.error(`E_AUTH: ${authHelpMessage()}`);
+    process.exit(2);
+  }
+
+  if (message.includes("--body") || message.includes("--id")) {
+    console.error(`E_INPUT: ${message}`);
+    process.exit(3);
+  }
+
+  if (message.includes("API_ERROR")) {
+    console.error(`E_API: ${message}`);
+    process.exit(4);
+  }
+
+  console.error(`E_RUNTIME: ${message}`);
+  process.exit(1);
+}
+
+function printNeedsReport(
+  query: string,
+  analyzed: ReturnType<typeof analyzeCompetitors>,
+  format: CliFormat
+) {
+  if (format === "md") {
+    printMarkdown("Needs Report", [
+      `- Query: ${query}`,
+      `- Sample size: ${analyzed.sampleSize}`,
+      "",
+      "## 頻出テーマ",
+      ...analyzed.topThemes.slice(0, 5).map(([theme, count], i) => `${i + 1}. ${theme} (${count})`),
+      "",
+      "## 構成パターン",
+      `- HowTo: ${analyzed.contentPatterns.howTo}`,
+      `- 比較: ${analyzed.contentPatterns.comparison}`,
+      `- 事例: ${analyzed.contentPatterns.caseStudy}`,
+      `- まとめ: ${analyzed.contentPatterns.listicle}`,
+      `- 考察: ${analyzed.contentPatterns.opinion}`,
+      `- その他: ${analyzed.contentPatterns.other}`,
+      "",
+      "## 反応指標分布",
+      `- Min: ${analyzed.likeDistribution.min.toFixed(2)}`,
+      `- Q1: ${analyzed.likeDistribution.q1.toFixed(2)}`,
+      `- Median: ${analyzed.likeDistribution.median.toFixed(2)}`,
+      `- Q3: ${analyzed.likeDistribution.q3.toFixed(2)}`,
+      `- Max: ${analyzed.likeDistribution.max.toFixed(2)}`,
+    ]);
+    return;
+  }
+  printJson({ query, ...analyzed, needs: analyzed.topThemes.slice(0, 5) });
+}
+
+function printGapReport(result: ReturnType<typeof diffMineVsCompetitors>, format: CliFormat) {
+  if (format === "md") {
+    printMarkdown("Gap Report", [
+      `- Mine average likes: ${result.mineAverageLikes.toFixed(2)}`,
+      `- Competitor average likes: ${result.competitorAverageLikes.toFixed(2)}`,
+      `- Like gap: ${result.likeGap.toFixed(2)}`,
+      "",
+      "## Gap Candidates",
+      ...(result.gapCandidates.length
+        ? result.gapCandidates.map((candidate, i) => `${i + 1}. ${candidate}`)
+        : ["1. 既存テーマで差分が小さいため、訴求軸を再設計"]),
+      "",
+      "## Suggestions",
+      ...result.suggestions.map((s, i) => `${i + 1}. ${s}`),
+    ]);
+    return;
+  }
+  printJson(result);
+}
+
+program
+  .command("search-notes")
+  .requiredOption("--query <query>")
+  .option("--size <size>", "", "10")
+  .option("--sort <sort>", "new|popular|hot", "hot")
+  .option("--json", "output as json")
+  .option("--format <format>", "json|md", "json")
+  .action(async (opts) => {
+    try {
+      const data = await getClient().searchNotes(opts.query, Number(opts.size), 0, opts.sort);
+      const format = opts.json ? "json" : opts.format;
+      printResult(data, format, "search-notes");
+    } catch (e) {
+      handleError(e);
+    }
+  });
+
+program
+  .command("get-note")
+  .requiredOption("--id <id>")
+  .option("--format <format>", "json|md", "json")
+  .action(async (opts) => {
+    try {
+      const data = await getClient().getNote(opts.id);
+      printResult(data, opts.format, "get-note");
+    } catch (e) {
+      handleError(e);
+    }
+  });
+
+program
+  .command("search-users")
+  .requiredOption("--query <query>")
+  .option("--size <size>", "", "10")
+  .option("--format <format>", "json|md", "json")
+  .action(async (opts) => {
+    try {
+      const data = await getClient().searchUsers(opts.query, Number(opts.size));
+      printResult(data, opts.format, "search-users");
+    } catch (e) {
+      handleError(e);
+    }
+  });
+
+program
+  .command("get-user-notes")
+  .requiredOption("--user <user>")
+  .option("--page <page>", "", "1")
+  .option("--format <format>", "json|md", "json")
+  .action(async (opts) => {
+    try {
+      const data = await getClient().getUserNotes(opts.user, Number(opts.page));
+      printResult(data, opts.format, "get-user-notes");
+    } catch (e) {
+      handleError(e);
+    }
+  });
+
+const competitor = program.command("competitor");
+competitor
+  .command("discover")
+  .requiredOption("--query <query>")
+  .option("--size <size>", "", "20")
+  .option("--format <format>", "json|md", "json")
+  .action(async (opts) => {
+    try {
+      const data = await getClient().searchNotes(opts.query, Number(opts.size));
+      const result = discoverCompetitors(normalizeNotes(data));
+      printResult(result, opts.format, "competitor discover");
+    } catch (e) {
+      handleError(e);
+    }
+  });
+
+competitor
+  .command("analyze")
+  .requiredOption("--query <query>")
+  .option("--size <size>", "", "40")
+  .option("--format <format>", "json|md", "json")
+  .action(async (opts) => {
+    try {
+      const data = await getClient().searchNotes(opts.query, Number(opts.size));
+      const result = analyzeCompetitors(normalizeNotes(data));
+      printResult(result, opts.format, "competitor analyze");
+    } catch (e) {
+      handleError(e);
+    }
+  });
+
+const diff = program.command("diff");
+diff
+  .command("mine-vs-competitors")
+  .requiredOption("--mine-query <mineQuery>")
+  .requiredOption("--competitor-query <competitorQuery>")
+  .option("--format <format>", "json|md", "json")
+  .action(async (opts) => {
+    try {
+      const client = getClient();
+      const mine = normalizeNotes(await client.searchNotes(opts.mineQuery, 20));
+      const competitors = normalizeNotes(await client.searchNotes(opts.competitorQuery, 20));
+      const result = diffMineVsCompetitors(mine, competitors);
+      printResult(result, opts.format, "diff mine-vs-competitors");
+    } catch (e) {
+      handleError(e);
+    }
+  });
+
+const report = program.command("report");
+report
+  .command("needs")
+  .requiredOption("--query <query>")
+  .option("--format <format>", "json|md", "md")
+  .action(async (opts) => {
+    try {
+      const data = await getClient().searchNotes(opts.query, 30);
+      const analyzed = analyzeCompetitors(normalizeNotes(data));
+      printNeedsReport(opts.query, analyzed, opts.format);
+    } catch (e) {
+      handleError(e);
+    }
+  });
+
+report
+  .command("gap")
+  .requiredOption("--mine-query <mineQuery>")
+  .requiredOption("--competitor-query <competitorQuery>")
+  .option("--format <format>", "json|md", "md")
+  .action(async (opts) => {
+    try {
+      const client = getClient();
+      const mine = normalizeNotes(await client.searchNotes(opts.mineQuery, 20));
+      const competitors = normalizeNotes(await client.searchNotes(opts.competitorQuery, 20));
+      printGapReport(diffMineVsCompetitors(mine, competitors), opts.format);
+    } catch (e) {
+      handleError(e);
+    }
+  });
+
+const draft = program.command("draft");
+draft
+  .command("create")
+  .requiredOption("--title <title>")
+  .option("--body <body>")
+  .option("--body-file <bodyFile>")
+  .option("--tags <tags>", "comma separated tags", "")
+  .option("--format <format>", "json|md", "json")
+  .action(async (opts) => {
+    try {
+      const client = getClient();
+      const body = readBody(opts.body, opts.bodyFile);
+      const create = await client.createDraft(opts.title);
+      const draftId = create?.data?.id;
+      if (draftId == null) {
+        throw new Error("AUTH_FAILED:draft_create_response_missing_id");
+      }
+      const id = String(draftId);
+      const key = create?.data?.key || `n${id}`;
+      const update = await client.updateDraft(id, opts.title, markdownToHtml(body));
+      const tags = opts.tags
+        ? String(opts.tags)
+            .split(",")
+            .map((v: string) => v.trim())
+            .filter(Boolean)
+        : [];
+      printResult(
+        { id, key, tags, editUrl: `https://editor.note.com/notes/${key}/edit/`, update },
+        opts.format,
+        "draft create"
+      );
+    } catch (e) {
+      handleError(e);
+    }
+  });
+
+draft
+  .command("update")
+  .requiredOption("--id <id>")
+  .option("--title <title>", "", "無題")
+  .option("--body <body>")
+  .option("--body-file <bodyFile>")
+  .option("--format <format>", "json|md", "json")
+  .action(async (opts) => {
+    try {
+      if (!/^[0-9]+$/.test(opts.id)) throw new Error("--id は数値IDを指定してください");
+      const body = readBody(opts.body, opts.bodyFile);
+      const update = await getClient().updateDraft(opts.id, opts.title, markdownToHtml(body));
+      printResult({ id: opts.id, update }, opts.format, "draft update");
+    } catch (e) {
+      handleError(e);
+    }
+  });
+
+const user = program.command("user");
+user
+  .command("analyze")
+  .description("指定ユーザーの記事を取得してコンテンツ傾向を分析します")
+  .requiredOption("--user <user>", "note ユーザー名 (urlname)")
+  .option("--page <page>", "取得ページ番号", "1")
+  .option("--format <format>", "json|md", "json")
+  .action(async (opts) => {
+    try {
+      const data = await getClient().getUserNotes(opts.user, Number(opts.page));
+      const notes = normalizeNotes(data);
+      if (notes.length === 0) {
+        console.error(`E_INPUT: ユーザー "${opts.user}" の記事が見つかりませんでした`);
+        process.exit(3);
+      }
+      const result = analyzeCompetitors(notes);
+      printResult(
+        { user: opts.user, page: Number(opts.page), ...result },
+        opts.format,
+        `user analyze: ${opts.user}`
+      );
+    } catch (e) {
+      handleError(e);
+    }
+  });
+
+const auth = program.command("auth");
+auth.command("status").action(() => {
+  const state = loadAuthState();
+  printJson({
+    authenticated: hasAuth(state),
+    cookie: maskSecret(state.cookie),
+    xsrfToken: maskSecret(state.xsrfToken),
+    userId: state.userId || "",
+  });
+});
+
+auth
+  .command("login")
+  .requiredOption("--cookie <cookie>")
+  .option("--xsrf <xsrf>")
+  .option("--user-id <userId>")
+  .action(async (opts) => {
+    const state = {
+      cookie: normalizeSessionCookie(opts.cookie),
+      xsrfToken: opts.xsrf,
+      userId: opts.userId,
+    };
+
+    if (!state.xsrfToken) {
+      const client = new NoteApiClient(state);
+      const hydrated = await client.hydrateXsrfToken();
+      if (hydrated) {
+        state.xsrfToken = hydrated;
+        console.log("XSRF token を自動取得しました。");
+      } else {
+        console.warn(
+          "XSRF token を自動取得できませんでした。ログイン状態は保存しましたが、投稿系コマンドは失敗する可能性があります。"
+        );
+      }
+    }
+
+    saveAuthState(state);
+    console.log("Saved auth session. `note-research auth status` で確認してください。");
+  });
+
+program.on("command:*", (operands: string[]) => {
+  const unknown = operands && operands.length > 0 ? operands[0] : "";
+  if (unknown) {
+    console.error(`Unsupported command: "${unknown}"`);
+  } else {
+    console.error("Unsupported command.");
+  }
+  console.error("publish/public/post は提供していません。");
+  console.error("利用可能なコマンドは --help を参照してください。");
+  program.outputHelp();
+  process.exit(1);
+});
+
+program.parseAsync();
