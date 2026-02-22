@@ -26,7 +26,7 @@ This project is derived from:
 - Competitor analysis and diff reports
 - **Account analysis**: analyze content trends of a specific user (`user analyze`)
 - Draft create/update
-- JSON / Markdown outputs
+- Minimal-first JSON / Markdown outputs (`--profile full` for raw payload)
 
 ## Requirements
 
@@ -68,26 +68,67 @@ NOTE_XSRF_TOKEN=<xsrfトークン>
 node -r dotenv/config dist/main.js auth status
 ```
 
-コマンドライン引数でログインする場合は `ps aux` などで他プロセスからセッションが見える点に注意してください。
+### Interactive login (recommended)
+
+`auth login` は対話式です。モード選択でログイン導線を切り替えられます。
+
+```bash
+node dist/main.js auth login
+```
+
+### Browser mode (Playwright)
+
+Playwrightがインストール済みなら、ブラウザログイン補助を使えます。
+
+```bash
+npm install -w note-research-cli playwright
+npx playwright install chromium
+node dist/main.js auth login --browser
+```
+
+### Manual mode
 
 ```bash
 node dist/main.js auth login --cookie "_note_session_v5=..."
 node dist/main.js auth status
 ```
 
-If `--xsrf` is omitted, CLI tries to resolve it automatically.
+`--xsrf` は省略可能です（未指定時は自動取得を試行）。
+
+### Environment mode
+
+```bash
+node -r dotenv/config dist/main.js auth login --mode env
+```
+
+### Safer non-interactive input
+
+引数露出を避けるため、cookie は標準入力でも渡せます。
+
+```bash
+echo "_note_session_v5=..." | node dist/main.js auth login --cookie-stdin --manual
+```
 
 認証情報は `~/.note-research/session.json` (mode 0600) に保存されます。
 
 ## Usage
 
 ```bash
-node dist/main.js search-notes --query "AI" --json
+node dist/main.js search-notes --query "AI" --format json
+node dist/main.js search-notes --query "AI" --format json --profile full
 node dist/main.js competitor analyze --query "AI" --format json
 node dist/main.js report needs --query "AI" --format md
 node dist/main.js user analyze --user <urlname> --format json
 node dist/main.js draft create --title "test" --body-file ./draft.md --format json
 ```
+
+## Output Profile
+
+- Default: `--profile minimal`
+- Optional: `--profile full`
+
+`minimal` はエージェント実行向けにノイズを削った出力です。  
+`full` はデバッグ・互換用途で生データ寄りの出力を維持します。
 
 ## Known Limitations
 

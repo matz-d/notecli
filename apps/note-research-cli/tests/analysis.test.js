@@ -47,3 +47,26 @@ test("diffMineVsCompetitors: returns 3-5 gap candidates", () => {
   assert.ok(Array.isArray(result.gapCandidates));
   assert.ok(result.gapCandidates.length >= 3 && result.gapCandidates.length <= 5);
 });
+
+test("analyzeCompetitors filters noisy theme tokens", () => {
+  const notes = normalizeNotes({
+    data: {
+      notes: [
+        {
+          id: "x1",
+          name: "【Google大反撃】Gemini Proの衝撃。もう「プロンプト」は書かなくていい",
+          likeCount: 9,
+          commentsCount: 1,
+          user: { urlname: "noisy" },
+        },
+      ],
+    },
+  });
+
+  const result = analyzeCompetitors(notes);
+  const themes = result.topThemes.map(([token]) => token);
+  assert.ok(themes.includes("google"));
+  assert.ok(themes.includes("gemini"));
+  assert.ok(!themes.some((token) => token.includes("【")));
+  assert.ok(!themes.some((token) => token.includes(" ")));
+});

@@ -1,5 +1,7 @@
 import fetch from "node-fetch";
-import { AuthState, buildAuthHeaders, hasAuth, normalizeSessionCookie } from "./auth.js";
+import { AuthState, buildAuthHeaders, normalizeSessionCookie } from "./auth.js";
+
+const DEFAULT_USER_AGENT = process.env.NOTECLI_USER_AGENT || "note-research-cli/0.2.0";
 
 function extractXsrfFromSetCookie(setCookies: string[] | undefined): string | undefined {
   if (!setCookies || setCookies.length === 0) return undefined;
@@ -103,7 +105,7 @@ export class NoteApiClient {
           method: "GET",
           headers: {
             accept: "application/json, text/html;q=0.9,*/*;q=0.8",
-            "user-agent": "note-research-cli/0.1.0",
+            "user-agent": DEFAULT_USER_AGENT,
             cookie,
             referer: "https://editor.note.com/",
           },
@@ -138,7 +140,7 @@ export class NoteApiClient {
     const headers: Record<string, string> = {
       accept: "application/json",
       "content-type": "application/json",
-      "user-agent": "note-research-cli/0.1.0",
+      "user-agent": DEFAULT_USER_AGENT,
       ...buildAuthHeaders(this.auth),
     };
 

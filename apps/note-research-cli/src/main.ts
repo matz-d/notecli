@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import "dotenv/config";
+import { createRequire } from "node:module";
 import { Command } from "commander";
 import {
   NoteApiClient,
@@ -7,9 +8,9 @@ import {
   hasAuth,
   loadAuthState,
   maskSecret,
-  normalizeSessionCookie,
   saveAuthState,
 } from "@note-research/note-core";
+import { resolveLoginState, type AuthLoginOptions } from "./auth/login.js";
 import {
   analyzeCompetitors,
   diffMineVsCompetitors,
@@ -18,15 +19,24 @@ import {
 } from "./analysis/competitor.js";
 import {
   markdownToHtml,
+  projectOutput,
   printJson,
   printMarkdown,
   printResult,
   readBody,
+  resolveOutputProfile,
   type CliFormat,
+  type OutputProfile,
 } from "./output/formatters.js";
 
+const require = createRequire(import.meta.url);
+const cliPackage = require("../package.json") as { version?: string };
+
 const program = new Command();
-program.name("note-research").description("note競合調査CLI（下書き作成/更新まで対応）");
+program
+  .name("note-research")
+  .description("note競合調査CLI（下書き作成/更新まで対応）")
+  .version(cliPackage.version || "0.0.0");
 
 function getClient() {
   return new NoteApiClient(loadAuthState());
@@ -37,6 +47,11 @@ function handleError(error: unknown): never {
   if (message.includes("AUTH_REQUIRED") || message.includes("AUTH_FAILED")) {
     console.error(`E_AUTH: ${authHelpMessage()}`);
     process.exit(2);
+  }
+
+  if (message.includes("INPUT_ERROR:")) {
+    console.error(`E_INPUT: ${message.replace("INPUT_ERROR:", "").trim()}`);
+    process.exit(3);
   }
 
   if (message.includes("--body") || message.includes("--id")) {
@@ -56,7 +71,8 @@ function handleError(error: unknown): never {
 function printNeedsReport(
   query: string,
   analyzed: ReturnType<typeof analyzeCompetitors>,
-  format: CliFormat
+  format: CliFormat,
+  profile: OutputProfile
 ) {
   if (format === "md") {
     printMarkdown("Needs Report", [
@@ -83,10 +99,20 @@ function printNeedsReport(
     ]);
     return;
   }
-  printJson({ query, ...analyzed, needs: analyzed.topThemes.slice(0, 5) });
+  if (profile === "full") {
+    printJson({ query, ...analyzed, needs: analyzed.topThemes.slice(0, 5) });
+    return;
+  }
+  printJson({
+    query,
+    sampleSize: analyzed.sampleSize,
+    topThemes: analyzed.topThemes.slice(0, 5),
+    contentPatterns: analyzed.contentPatterns,
+    likeDistribution: analyzed.likeDistribution,
+  });
 }
 
-function printGapReport(result: ReturnType<typeof diffMineVsCompetitors>, format: CliFormat) {
+function printGapReport(result: ReturnType<typeof diffMineVsCompetitors>, format: CliFormat, _profile: OutputProfile) {
   if (format === "md") {
     printMarkdown("Gap Report", [
       `- Mine average likes: ${result.mineAverageLikes.toFixed(2)}`,
@@ -113,11 +139,13 @@ program
   .option("--sort <sort>", "new|popular|hot", "hot")
   .option("--json", "output as json")
   .option("--format <format>", "json|md", "json")
+  .option("--profile <profile>", "minimal|full", "minimal")
   .action(async (opts) => {
     try {
       const data = await getClient().searchNotes(opts.query, Number(opts.size), 0, opts.sort);
+      const profile = resolveOutputProfile(opts.profile);
       const format = opts.json ? "json" : opts.format;
-      printResult(data, format, "search-notes");
+      printResult(projectOutput("search-notes", data, profile), format, "search-notes");
     } catch (e) {
       handleError(e);
     }
@@ -127,10 +155,12 @@ program
   .command("get-note")
   .requiredOption("--id <id>")
   .option("--format <format>", "json|md", "json")
+  .option("--profile <profile>", "minimal|full", "minimal")
   .action(async (opts) => {
     try {
       const data = await getClient().getNote(opts.id);
-      printResult(data, opts.format, "get-note");
+      const profile = resolveOutputProfile(opts.profile);
+      printResult(projectOutput("get-note", data, profile), opts.format, "get-note");
     } catch (e) {
       handleError(e);
     }
@@ -141,10 +171,12 @@ program
   .requiredOption("--query <query>")
   .option("--size <size>", "", "10")
   .option("--format <format>", "json|md", "json")
+  .option("--profile <profile>", "minimal|full", "minimal")
   .action(async (opts) => {
     try {
       const data = await getClient().searchUsers(opts.query, Number(opts.size));
-      printResult(data, opts.format, "search-users");
+      const profile = resolveOutputProfile(opts.profile);
+      printResult(projectOutput("search-users", data, profile), opts.format, "search-users");
     } catch (e) {
       handleError(e);
     }
@@ -155,10 +187,12 @@ program
   .requiredOption("--user <user>")
   .option("--page <page>", "", "1")
   .option("--format <format>", "json|md", "json")
+  .option("--profile <profile>", "minimal|full", "minimal")
   .action(async (opts) => {
     try {
       const data = await getClient().getUserNotes(opts.user, Number(opts.page));
-      printResult(data, opts.format, "get-user-notes");
+      const profile = resolveOutputProfile(opts.profile);
+      printResult(projectOutput("get-user-notes", data, profile), opts.format, "get-user-notes");
     } catch (e) {
       handleError(e);
     }
@@ -170,11 +204,13 @@ competitor
   .requiredOption("--query <query>")
   .option("--size <size>", "", "20")
   .option("--format <format>", "json|md", "json")
+  .option("--profile <profile>", "minimal|full", "minimal")
   .action(async (opts) => {
     try {
       const data = await getClient().searchNotes(opts.query, Number(opts.size));
       const result = discoverCompetitors(normalizeNotes(data));
-      printResult(result, opts.format, "competitor discover");
+      const profile = resolveOutputProfile(opts.profile);
+      printResult(projectOutput("competitor discover", result, profile), opts.format, "competitor discover");
     } catch (e) {
       handleError(e);
     }
@@ -185,11 +221,13 @@ competitor
   .requiredOption("--query <query>")
   .option("--size <size>", "", "40")
   .option("--format <format>", "json|md", "json")
+  .option("--profile <profile>", "minimal|full", "minimal")
   .action(async (opts) => {
     try {
       const data = await getClient().searchNotes(opts.query, Number(opts.size));
       const result = analyzeCompetitors(normalizeNotes(data));
-      printResult(result, opts.format, "competitor analyze");
+      const profile = resolveOutputProfile(opts.profile);
+      printResult(projectOutput("competitor analyze", result, profile), opts.format, "competitor analyze");
     } catch (e) {
       handleError(e);
     }
@@ -201,13 +239,15 @@ diff
   .requiredOption("--mine-query <mineQuery>")
   .requiredOption("--competitor-query <competitorQuery>")
   .option("--format <format>", "json|md", "json")
+  .option("--profile <profile>", "minimal|full", "minimal")
   .action(async (opts) => {
     try {
       const client = getClient();
       const mine = normalizeNotes(await client.searchNotes(opts.mineQuery, 20));
       const competitors = normalizeNotes(await client.searchNotes(opts.competitorQuery, 20));
       const result = diffMineVsCompetitors(mine, competitors);
-      printResult(result, opts.format, "diff mine-vs-competitors");
+      const profile = resolveOutputProfile(opts.profile);
+      printResult(projectOutput("diff mine-vs-competitors", result, profile), opts.format, "diff mine-vs-competitors");
     } catch (e) {
       handleError(e);
     }
@@ -218,11 +258,13 @@ report
   .command("needs")
   .requiredOption("--query <query>")
   .option("--format <format>", "json|md", "md")
+  .option("--profile <profile>", "minimal|full", "minimal")
   .action(async (opts) => {
     try {
       const data = await getClient().searchNotes(opts.query, 30);
       const analyzed = analyzeCompetitors(normalizeNotes(data));
-      printNeedsReport(opts.query, analyzed, opts.format);
+      const profile = resolveOutputProfile(opts.profile);
+      printNeedsReport(opts.query, analyzed, opts.format, profile);
     } catch (e) {
       handleError(e);
     }
@@ -233,12 +275,14 @@ report
   .requiredOption("--mine-query <mineQuery>")
   .requiredOption("--competitor-query <competitorQuery>")
   .option("--format <format>", "json|md", "md")
+  .option("--profile <profile>", "minimal|full", "minimal")
   .action(async (opts) => {
     try {
       const client = getClient();
       const mine = normalizeNotes(await client.searchNotes(opts.mineQuery, 20));
       const competitors = normalizeNotes(await client.searchNotes(opts.competitorQuery, 20));
-      printGapReport(diffMineVsCompetitors(mine, competitors), opts.format);
+      const profile = resolveOutputProfile(opts.profile);
+      printGapReport(diffMineVsCompetitors(mine, competitors), opts.format, profile);
     } catch (e) {
       handleError(e);
     }
@@ -252,6 +296,7 @@ draft
   .option("--body-file <bodyFile>")
   .option("--tags <tags>", "comma separated tags", "")
   .option("--format <format>", "json|md", "json")
+  .option("--profile <profile>", "minimal|full", "minimal")
   .action(async (opts) => {
     try {
       const client = getClient();
@@ -270,11 +315,9 @@ draft
             .map((v: string) => v.trim())
             .filter(Boolean)
         : [];
-      printResult(
-        { id, key, tags, editUrl: `https://editor.note.com/notes/${key}/edit/`, update },
-        opts.format,
-        "draft create"
-      );
+      const profile = resolveOutputProfile(opts.profile);
+      const output = { id, key, tags, editUrl: `https://editor.note.com/notes/${key}/edit/`, update };
+      printResult(projectOutput("draft create", output, profile), opts.format, "draft create");
     } catch (e) {
       handleError(e);
     }
@@ -287,12 +330,14 @@ draft
   .option("--body <body>")
   .option("--body-file <bodyFile>")
   .option("--format <format>", "json|md", "json")
+  .option("--profile <profile>", "minimal|full", "minimal")
   .action(async (opts) => {
     try {
       if (!/^[0-9]+$/.test(opts.id)) throw new Error("--id は数値IDを指定してください");
       const body = readBody(opts.body, opts.bodyFile);
       const update = await getClient().updateDraft(opts.id, opts.title, markdownToHtml(body));
-      printResult({ id: opts.id, update }, opts.format, "draft update");
+      const profile = resolveOutputProfile(opts.profile);
+      printResult(projectOutput("draft update", { id: opts.id, update }, profile), opts.format, "draft update");
     } catch (e) {
       handleError(e);
     }
@@ -305,6 +350,7 @@ user
   .requiredOption("--user <user>", "note ユーザー名 (urlname)")
   .option("--page <page>", "取得ページ番号", "1")
   .option("--format <format>", "json|md", "json")
+  .option("--profile <profile>", "minimal|full", "minimal")
   .action(async (opts) => {
     try {
       const data = await getClient().getUserNotes(opts.user, Number(opts.page));
@@ -314,8 +360,9 @@ user
         process.exit(3);
       }
       const result = analyzeCompetitors(notes);
+      const profile = resolveOutputProfile(opts.profile);
       printResult(
-        { user: opts.user, page: Number(opts.page), ...result },
+        projectOutput(`user analyze: ${opts.user}`, { user: opts.user, page: Number(opts.page), ...result }, profile),
         opts.format,
         `user analyze: ${opts.user}`
       );
@@ -337,31 +384,31 @@ auth.command("status").action(() => {
 
 auth
   .command("login")
-  .requiredOption("--cookie <cookie>")
+  .option("--cookie <cookie>")
+  .option("--cookie-stdin", "read cookie from stdin")
   .option("--xsrf <xsrf>")
   .option("--user-id <userId>")
+  .option("--mode <mode>", "auto|browser|manual|env", "auto")
+  .option("--browser", "shortcut for --mode browser")
+  .option("--manual", "shortcut for --mode manual")
+  .option("--env", "shortcut for --mode env")
   .action(async (opts) => {
-    const state = {
-      cookie: normalizeSessionCookie(opts.cookie),
-      xsrfToken: opts.xsrf,
-      userId: opts.userId,
-    };
-
-    if (!state.xsrfToken) {
-      const client = new NoteApiClient(state);
-      const hydrated = await client.hydrateXsrfToken();
-      if (hydrated) {
-        state.xsrfToken = hydrated;
-        console.log("XSRF token を自動取得しました。");
-      } else {
-        console.warn(
-          "XSRF token を自動取得できませんでした。ログイン状態は保存しましたが、投稿系コマンドは失敗する可能性があります。"
-        );
+    try {
+      const state = await resolveLoginState(opts as AuthLoginOptions);
+      if (!state.cookie) {
+        throw new Error("INPUT_ERROR: cookie が未設定です。");
       }
-    }
 
-    saveAuthState(state);
-    console.log("Saved auth session. `note-research auth status` で確認してください。");
+      if (!state.xsrfToken) {
+        const client = new NoteApiClient(state);
+        state.xsrfToken = await client.hydrateXsrfToken();
+      }
+
+      saveAuthState(state);
+      console.log("Saved auth session. `note-research auth status` で確認してください。");
+    } catch (e) {
+      handleError(e);
+    }
   });
 
 program.on("command:*", (operands: string[]) => {

@@ -18,11 +18,58 @@ interface PatternStats {
   other: number;
 }
 
-function toThemeTokens(text: string): string[] {
+const THEME_STOPWORDS = new Set([
+  "です",
+  "ます",
+  "する",
+  "した",
+  "して",
+  "いる",
+  "ある",
+  "ない",
+  "これ",
+  "それ",
+  "ため",
+  "よう",
+  "こと",
+  "もの",
+  "ai",
+]);
+
+function normalizeThemeSource(text: string): string {
   return text
+    .normalize("NFKC")
     .toLowerCase()
-    .split(/[\s・|｜:：\-_/、。,.!?()[\]{}"'`]+/)
-    .filter((t) => t.length >= 2);
+    .replace(/[【】「」『』（）\[\]{}<>＜＞〈〉《》]/g, " ")
+    .replace(/[!！?？:：;；"“”'`’]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function sanitizeThemeToken(token: string): string | null {
+  const normalized = token.trim();
+  if (!normalized) return null;
+  const stripped = normalized.replace(/^[ぁ-んー]+/, "").replace(/[ぁ-んー]+$/, "");
+  if (!stripped) return null;
+  if (stripped.length < 2 || stripped.length > 20) return null;
+  if (/^[0-9]+$/.test(stripped)) return null;
+  if (/^[ぁ-んー]+$/.test(stripped)) return null;
+  if (THEME_STOPWORDS.has(stripped)) return null;
+  return stripped;
+}
+
+function toThemeTokens(text: string): string[] {
+  const normalized = normalizeThemeSource(text);
+  const matches = normalized.match(/[a-z][a-z0-9+.#-]{1,20}|[ぁ-んァ-ヶ一-龠々ー]{2,20}/g) || [];
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+  for (const match of matches) {
+    const token = sanitizeThemeToken(match);
+    if (!token || seen.has(token)) continue;
+    seen.add(token);
+    tokens.push(token);
+  }
+  return tokens;
 }
 
 function collectThemeCounts(notes: NormalizedNote[]): ThemeCounts {

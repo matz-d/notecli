@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { markdownToHtml, printResult, readBody } from "../dist/output/formatters.js";
+import { markdownToHtml, printResult, projectOutput, readBody, resolveOutputProfile } from "../dist/output/formatters.js";
 
 test("markdownToHtml converts headings and paragraphs", () => {
   const html = markdownToHtml("# Title\n\nbody line1\nbody line2");
@@ -46,4 +46,76 @@ test("printResult outputs json and markdown wrapper", () => {
   assert.match(output, /"ok": true/);
   assert.match(output, /# Result/);
   assert.match(output, /```json/);
+});
+
+test("resolveOutputProfile validates profile values", () => {
+  assert.equal(resolveOutputProfile(undefined), "minimal");
+  assert.equal(resolveOutputProfile("minimal"), "minimal");
+  assert.equal(resolveOutputProfile("full"), "full");
+  assert.throws(() => resolveOutputProfile("invalid"), /--profile/);
+});
+
+test("projectOutput trims search-notes to minimal fields by default", () => {
+  const payload = {
+    data: {
+      note_cursor: "5",
+      notes: {
+        contents: [
+          {
+            id: 1,
+            key: "n1",
+            name: "title",
+            publish_at: "2026-01-01",
+            like_count: 10,
+            comment_count: 2,
+            user: { name: "u1", urlname: "user1" },
+            body: "ignore",
+            eyecatch: "ignore",
+          },
+        ],
+      },
+    },
+  };
+
+  const minimal = projectOutput("search-notes", payload, "minimal");
+  assert.deepEqual(minimal, {
+    count: 1,
+    nextCursor: "5",
+    notes: [
+      {
+        id: "1",
+        key: "n1",
+        title: "title",
+        url: "https://note.com/user1/n/n1",
+        publishedAt: "2026-01-01",
+        likes: 10,
+        comments: 2,
+        author: { name: "u1", urlname: "user1" },
+      },
+    ],
+  });
+
+  const full = projectOutput("search-notes", payload, "full");
+  assert.deepEqual(full, payload);
+});
+
+test("projectOutput returns concise draft create payload", () => {
+  const payload = {
+    id: "123",
+    key: "n123",
+    tags: ["a"],
+    editUrl: "https://editor.note.com/notes/n123/edit/",
+    update: {
+      data: { result: true, updated_at: "2026-02-22T00:00:00.000+09:00" },
+    },
+  };
+
+  assert.deepEqual(projectOutput("draft create", payload, "minimal"), {
+    success: true,
+    id: "123",
+    key: "n123",
+    editUrl: "https://editor.note.com/notes/n123/edit/",
+    tags: ["a"],
+    updatedAt: "2026-02-22T00:00:00.000+09:00",
+  });
 });

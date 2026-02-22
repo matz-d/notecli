@@ -84,5 +84,5 @@ export function hasAuth(state: AuthState): boolean {
 }
 
 export function authHelpMessage(): string {
-  return "認証が必要です。`note-research auth login --cookie \"...\" [--xsrf \"...\"] [--user-id ...]` を実行してください。";
+  return "認証が必要です。`note-research auth login`（対話式）または `note-research auth login --cookie \"...\"` を実行してください。";
 }
