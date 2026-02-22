@@ -10,6 +10,7 @@ import {
   normalizeSessionCookie,
   saveAuthState,
 } from "@note-research/note-core";
+import { resolveLoginState, type AuthLoginOptions } from "./auth/login.js";
 import {
   analyzeCompetitors,
   diffMineVsCompetitors,
@@ -37,6 +38,11 @@ function handleError(error: unknown): never {
   if (message.includes("AUTH_REQUIRED") || message.includes("AUTH_FAILED")) {
     console.error(`E_AUTH: ${authHelpMessage()}`);
     process.exit(2);
+  }
+
+  if (message.includes("INPUT_ERROR:")) {
+    console.error(`E_INPUT: ${message.replace("INPUT_ERROR:", "").trim()}`);
+    process.exit(3);
   }
 
   if (message.includes("--body") || message.includes("--id")) {
@@ -337,31 +343,40 @@ auth.command("status").action(() => {
 
 auth
   .command("login")
-  .requiredOption("--cookie <cookie>")
+  .option("--cookie <cookie>")
+  .option("--cookie-stdin", "read cookie from stdin")
   .option("--xsrf <xsrf>")
   .option("--user-id <userId>")
+  .option("--mode <mode>", "auto|browser|manual|env", "auto")
+  .option("--browser", "shortcut for --mode browser")
+  .option("--manual", "shortcut for --mode manual")
+  .option("--env", "shortcut for --mode env")
   .action(async (opts) => {
-    const state = {
-      cookie: normalizeSessionCookie(opts.cookie),
-      xsrfToken: opts.xsrf,
-      userId: opts.userId,
-    };
-
-    if (!state.xsrfToken) {
-      const client = new NoteApiClient(state);
-      const hydrated = await client.hydrateXsrfToken();
-      if (hydrated) {
-        state.xsrfToken = hydrated;
-        console.log("XSRF token を自動取得しました。");
-      } else {
-        console.warn(
-          "XSRF token を自動取得できませんでした。ログイン状態は保存しましたが、投稿系コマンドは失敗する可能性があります。"
-        );
+    try {
+      const state = await resolveLoginState(opts as AuthLoginOptions);
+      state.cookie = normalizeSessionCookie(state.cookie);
+      if (!state.cookie) {
+        throw new Error("INPUT_ERROR: cookie が未設定です。");
       }
-    }
 
-    saveAuthState(state);
-    console.log("Saved auth session. `note-research auth status` で確認してください。");
+      if (!state.xsrfToken) {
+        const client = new NoteApiClient(state);
+        const hydrated = await client.hydrateXsrfToken();
+        if (hydrated) {
+          state.xsrfToken = hydrated;
+          console.log("XSRF token を自動取得しました。");
+        } else {
+          console.warn(
+            "XSRF token を自動取得できませんでした。ログイン状態は保存しましたが、投稿系コマンドは失敗する可能性があります。"
+          );
+        }
+      }
+
+      saveAuthState(state);
+      console.log("Saved auth session. `note-research auth status` で確認してください。");
+    } catch (e) {
+      handleError(e);
+    }
   });
 
 program.on("command:*", (operands: string[]) => {

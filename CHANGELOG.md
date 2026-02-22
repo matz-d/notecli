@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Added
+- Interactive `auth login` flow with selectable modes: `browser` / `manual` / `env`.
+- `auth login --cookie-stdin` for safer non-interactive cookie input.
+- Optional Playwright-assisted browser login via `auth login --browser`.
+
+### Changed
+- `auth login` no longer requires `--cookie` at parse-time; existing `--cookie` flow remains supported.
+- Improved authentication guidance messages to reference interactive login.
+
 ## [0.1.0] - 2026-02-21
 
 ### Added

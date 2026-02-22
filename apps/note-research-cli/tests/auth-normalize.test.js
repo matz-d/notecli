@@ -22,19 +22,27 @@ test("hasAuth evaluates normalized cookie and xsrf", () => {
 
 test("saveAuthState creates session file with mode 0o600", () => {
   const origHome = process.env.HOME;
+  const origUserProfile = process.env.USERPROFILE;
   const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "note-research-auth-test-"));
   try {
     process.env.HOME = tmpHome;
+    process.env.USERPROFILE = tmpHome;
     saveAuthState({ cookie: "test_cookie", xsrfToken: "test_xsrf" });
     const sessionFile = path.join(tmpHome, ".note-research", "session.json");
     const stat = fs.statSync(sessionFile);
-    const mode = stat.mode & 0o777;
-    assert.equal(mode, 0o600, `session.json should be 0o600 but got ${mode.toString(8)}`);
     const dirStat = fs.statSync(path.join(tmpHome, ".note-research"));
-    const dirMode = dirStat.mode & 0o777;
-    assert.equal(dirMode, 0o700, `.note-research dir should be 0o700 but got ${dirMode.toString(8)}`);
+    if (process.platform === "win32") {
+      assert.ok(stat.isFile());
+      assert.ok(dirStat.isDirectory());
+    } else {
+      const mode = stat.mode & 0o777;
+      assert.equal(mode, 0o600, `session.json should be 0o600 but got ${mode.toString(8)}`);
+      const dirMode = dirStat.mode & 0o777;
+      assert.equal(dirMode, 0o700, `.note-research dir should be 0o700 but got ${dirMode.toString(8)}`);
+    }
   } finally {
     process.env.HOME = origHome;
+    process.env.USERPROFILE = origUserProfile;
     fs.rmSync(tmpHome, { recursive: true, force: true });
   }
 });
