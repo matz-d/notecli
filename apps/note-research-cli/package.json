@@ -21,7 +21,7 @@
     "lint": "npm run typecheck",
     "test": "npm run build && node --test tests/*.test.js",
     "start": "node dist/main.js",
-    "bundle:note-core": "node -e \"const fs=require('fs');const p='.vendor';fs.mkdirSync(p,{recursive:true});for(const f of fs.readdirSync(p)){if(/^note-research-note-core-.*\\.tgz$/.test(f))fs.rmSync(p+'/'+f);}\" && npm --prefix ../../packages/note-core run build && npm pack ../../packages/note-core --pack-destination .vendor && node -e \"const fs=require('fs');const cp=require('child_process');const p='.vendor';const files=fs.readdirSync(p).filter(f=>/^note-research-note-core-.*\\.tgz$/.test(f));if(!files.length)throw new Error('note-core tarball not found');files.sort((a,b)=>fs.statSync(p+'/'+b).mtimeMs-fs.statSync(p+'/'+a).mtimeMs);const npmCmd=process.platform==='win32'?'npm.cmd':'npm';cp.execFileSync(npmCmd,['install','--no-save','--ignore-scripts',p+'/'+files[0]],{stdio:'inherit'});\""
+    "bundle:note-core": "node scripts/bundle-note-core.cjs"
   },
   "dependencies": {
     "@note-research/note-core": "file:../../packages/note-core",
