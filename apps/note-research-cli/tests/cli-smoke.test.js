@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const cliPath = path.resolve(__dirname, "../dist/main.cjs");
+const cliPkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../package.json"), "utf8"));
 
 function runCli(args, envOverrides = {}) {
   return spawnSync(process.execPath, [cliPath, ...args], {
@@ -37,7 +38,7 @@ test("CLI help contains primary command groups", () => {
 test("CLI version command works", () => {
   const result = runCli(["--version"]);
   assert.equal(result.status, 0);
-  assert.match(result.stdout.trim(), /^0\.2\.0$/);
+  assert.equal(result.stdout.trim(), cliPkg.version);
 });
 
 test("user analyze requires --user option", () => {
