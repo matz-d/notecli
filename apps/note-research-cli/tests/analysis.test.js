@@ -32,6 +32,20 @@ test("analyzeCompetitors: themes/patterns/quartiles are calculated", () => {
   assert.ok(result.likeDistribution.median <= result.likeDistribution.q3);
 });
 
+test("normalizeNotes supports creator contents responses", () => {
+  const notes = normalizeNotes(readJson("get-user-notes.json"));
+
+  assert.equal(notes.length, 2);
+  assert.deepEqual(notes[0], {
+    id: 101,
+    title: "業務改善の手順",
+    likes: 12,
+    comments: 3,
+    body: "業務改善の進め方を解説します。",
+    user: "example",
+  });
+});
+
 test("diffMineVsCompetitors: returns 3-5 gap candidates", () => {
   const mine = normalizeNotes({
     data: {

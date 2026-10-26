@@ -99,6 +99,44 @@ test("projectOutput trims search-notes to minimal fields by default", () => {
   assert.deepEqual(full, payload);
 });
 
+test("projectOutput supports creator contents responses", () => {
+  const payload = {
+    data: {
+      contents: [
+        {
+          id: 101,
+          key: "n-user-1",
+          name: "業務改善の手順",
+          likeCount: 12,
+          commentCount: 3,
+          publishAt: "2026-10-01T09:00:00+09:00",
+          noteUrl: "https://note.com/example/n/n-user-1",
+          user: { name: "Example User", urlname: "example" },
+        },
+      ],
+      isLastPage: true,
+      totalCount: 1,
+    },
+  };
+
+  assert.deepEqual(projectOutput("get-user-notes", payload, "minimal"), {
+    count: 1,
+    totalCount: 1,
+    notes: [
+      {
+        id: "101",
+        key: "n-user-1",
+        title: "業務改善の手順",
+        url: "https://note.com/example/n/n-user-1",
+        publishedAt: "2026-10-01T09:00:00+09:00",
+        likes: 12,
+        comments: 3,
+        author: { name: "Example User", urlname: "example" },
+      },
+    ],
+  });
+});
+
 test("projectOutput returns concise draft create payload", () => {
   const payload = {
     id: "123",
