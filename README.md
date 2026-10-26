@@ -38,13 +38,11 @@ This project is derived from:
 ### Option A: Download release artifact
 
 1. Download the latest archive from Releases
-2. Extract it
+2. Extract it and enter the `package` directory
 3. Run:
 
 ```bash
-npm install
-npm run build
-node apps/note-research-cli/dist/main.cjs --help
+node dist/main.cjs --help
 ```
 
 ### Option B: Build from source
@@ -53,6 +51,7 @@ node apps/note-research-cli/dist/main.cjs --help
 npm install
 npm run build
 npm test
+node apps/note-research-cli/dist/main.cjs --help
 ```
 
 `npm run build` は TypeScript のコンパイルに加えて、実行用の
@@ -119,6 +118,9 @@ echo "_note_session_v5=..." | node apps/note-research-cli/dist/main.cjs auth log
 認証情報は `~/.note-research/session.json` (mode 0600) に保存されます。
 
 ## Usage
+
+以下はソースリポジトリのルートから実行する例です。Release archive 内では、
+`node apps/note-research-cli/dist/main.cjs` を `node dist/main.cjs` に読み替えてください。
 
 ```bash
 node apps/note-research-cli/dist/main.cjs search-notes --query "AI" --format json
