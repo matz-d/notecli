@@ -71,7 +71,7 @@ NOTE_SESSION_V5=<セッション値のみ。_note_session_v5= は不要>
 NOTE_XSRF_TOKEN=<xsrfトークン>
 
 # ロードして起動
-node -r dotenv/config apps/note-research-cli/dist/main.cjs auth status
+node apps/note-research-cli/dist/main.cjs auth status
 ```
 
 ### Interactive login (recommended)
@@ -104,7 +104,7 @@ node apps/note-research-cli/dist/main.cjs auth status
 ### Environment mode
 
 ```bash
-node -r dotenv/config apps/note-research-cli/dist/main.cjs auth login --mode env
+node apps/note-research-cli/dist/main.cjs auth login --mode env
 ```
 
 ### Safer non-interactive input
