@@ -190,8 +190,56 @@ export class NoteApiClient {
     );
   }
 
-  getUserNotes(username: string, page = 1) {
-    return this.request(`/v2/creators/${username}/contents?kind=note&page=${page}`, "GET", undefined, false);
+  async getUserNotes(username: string, page = 1) {
+    if (!Number.isInteger(page) || page < 1) {
+      throw new Error("INPUT_ERROR: page は1以上の整数を指定してください");
+    }
+
+    const contents: any[] = [];
+    const seenNotes = new Set<string>();
+    let currentPage = page;
+    let lastPayload: any;
+
+    while (true) {
+      const payload = await this.request(
+        `/v2/creators/${encodeURIComponent(username)}/contents?kind=note&page=${currentPage}`,
+        "GET",
+        undefined,
+        false
+      );
+      const pageContents = payload?.data?.contents;
+      if (!Array.isArray(pageContents)) {
+        throw new Error("API_ERROR:invalid_user_notes_response");
+      }
+
+      for (const note of pageContents) {
+        const id = note?.id;
+        const key = note?.key;
+        const identity =
+          id !== undefined && id !== null && String(id) !== ""
+            ? `id:${String(id)}`
+            : key !== undefined && key !== null && String(key) !== ""
+              ? `key:${String(key)}`
+              : undefined;
+        if (identity && seenNotes.has(identity)) continue;
+        if (identity) seenNotes.add(identity);
+        contents.push(note);
+      }
+      lastPayload = payload;
+
+      // Older responses did not expose isLastPage. In that case, preserve the
+      // previous single-page behavior instead of issuing unbounded requests.
+      if (payload.data.isLastPage !== false) break;
+      currentPage += 1;
+    }
+
+    return {
+      ...lastPayload,
+      data: {
+        ...lastPayload.data,
+        contents,
+      },
+    };
   }
 
   createDraft(title: string) {

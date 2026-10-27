@@ -35,6 +35,7 @@ export function printResult(value: unknown, format: CliFormat = "json", title = 
 }
 
 function getNotesFromPayload(payload: any): any[] {
+  if (Array.isArray(payload?.data?.contents)) return payload.data.contents;
   const notes = payload?.data?.notes;
   if (Array.isArray(notes)) return notes;
   if (Array.isArray(notes?.contents)) return notes.contents;
@@ -42,7 +43,8 @@ function getNotesFromPayload(payload: any): any[] {
 }
 
 function noteUrl(note: any): string {
-  if (typeof note?.external_url === "string" && note.external_url) return note.external_url;
+  const directUrl = note?.noteUrl || note?.externalUrl || note?.external_url;
+  if (typeof directUrl === "string" && directUrl) return directUrl;
   const urlname = note?.user?.urlname;
   const key = note?.key || note?.id;
   if (urlname && key) return `https://note.com/${urlname}/n/${key}`;
@@ -56,9 +58,16 @@ function minimalNote(note: any): UnknownRecord {
     key: note?.key || "",
     title: note?.name || note?.title || "(untitled)",
     url: noteUrl(note),
-    publishedAt: note?.publish_at || note?.publishAt || "",
+    publishedAt: note?.publishAt || note?.publish_at || "",
     likes: Number(note?.likeCount ?? note?.like_count ?? note?.like?.count ?? 0),
-    comments: Number(note?.comment_count ?? note?.commentsCount ?? note?.comments_count ?? note?.comments?.count ?? 0),
+    comments: Number(
+      note?.commentCount ??
+        note?.commentsCount ??
+        note?.comment_count ??
+        note?.comments_count ??
+        note?.comments?.count ??
+        0
+    ),
     author: {
       name: note?.user?.name || note?.user?.nickname || "",
       urlname: note?.user?.urlname || "",
@@ -79,6 +88,7 @@ function toMinimalGetUserNotes(payload: any): UnknownRecord {
   const notes = getNotesFromPayload(payload).map(minimalNote);
   return {
     count: notes.length,
+    totalCount: Number(payload?.data?.totalCount ?? notes.length),
     notes,
   };
 }

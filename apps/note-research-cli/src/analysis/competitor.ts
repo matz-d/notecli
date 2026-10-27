@@ -131,12 +131,20 @@ function toNumber(value: unknown): number {
 
 export function normalizeNotes(payload: any): NormalizedNote[] {
   const raw = payload?.data?.notes;
-  const notes = Array.isArray(raw) ? raw : Array.isArray(raw?.contents) ? raw.contents : [];
+  const notes = Array.isArray(payload?.data?.contents)
+    ? payload.data.contents
+    : Array.isArray(raw)
+      ? raw
+      : Array.isArray(raw?.contents)
+        ? raw.contents
+        : [];
   return notes.map((n: any) => ({
     id: n?.id || n?.key || "",
     title: n?.name || n?.title || "(untitled)",
     likes: toNumber(n?.likeCount ?? n?.like_count ?? n?.like?.count),
-    comments: toNumber(n?.commentsCount ?? n?.comments_count ?? n?.comment_count ?? n?.comments?.count),
+    comments: toNumber(
+      n?.commentCount ?? n?.commentsCount ?? n?.comments_count ?? n?.comment_count ?? n?.comments?.count
+    ),
     body: n?.body || "",
     user: n?.user?.urlname || n?.user?.name,
   }));

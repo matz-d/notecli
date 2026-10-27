@@ -38,13 +38,11 @@ This project is derived from:
 ### Option A: Download release artifact
 
 1. Download the latest archive from Releases
-2. Extract it
+2. Extract it and enter the `package` directory
 3. Run:
 
 ```bash
-npm install
-npm run build
-node dist/main.js --help
+node dist/main.cjs --help
 ```
 
 ### Option B: Build from source
@@ -53,7 +51,15 @@ node dist/main.js --help
 npm install
 npm run build
 npm test
+node apps/note-research-cli/dist/main.cjs --help
 ```
+
+`npm run build` は TypeScript のコンパイルに加えて、実行用の
+`apps/note-research-cli/dist/main.cjs` を生成します。
+
+> [!NOTE]
+> npm 11 で esbuild の install script が保留された場合は、
+> `npm install-scripts approve esbuild` を実行してから再度ビルドしてください。
 
 ## Authentication
 
@@ -65,7 +71,7 @@ NOTE_SESSION_V5=<セッション値のみ。_note_session_v5= は不要>
 NOTE_XSRF_TOKEN=<xsrfトークン>
 
 # ロードして起動
-node -r dotenv/config dist/main.js auth status
+node apps/note-research-cli/dist/main.cjs auth status
 ```
 
 ### Interactive login (recommended)
@@ -73,7 +79,7 @@ node -r dotenv/config dist/main.js auth status
 `auth login` は対話式です。モード選択でログイン導線を切り替えられます。
 
 ```bash
-node dist/main.js auth login
+node apps/note-research-cli/dist/main.cjs auth login
 ```
 
 ### Browser mode (Playwright)
@@ -83,14 +89,14 @@ Playwrightがインストール済みなら、ブラウザログイン補助を�
 ```bash
 npm install -w note-research-cli playwright
 npx playwright install chromium
-node dist/main.js auth login --browser
+node apps/note-research-cli/dist/main.cjs auth login --browser
 ```
 
 ### Manual mode
 
 ```bash
-node dist/main.js auth login --cookie "_note_session_v5=..."
-node dist/main.js auth status
+node apps/note-research-cli/dist/main.cjs auth login --cookie "_note_session_v5=..."
+node apps/note-research-cli/dist/main.cjs auth status
 ```
 
 `--xsrf` は省略可能です（未指定時は自動取得を試行）。
@@ -98,7 +104,7 @@ node dist/main.js auth status
 ### Environment mode
 
 ```bash
-node -r dotenv/config dist/main.js auth login --mode env
+node apps/note-research-cli/dist/main.cjs auth login --mode env
 ```
 
 ### Safer non-interactive input
@@ -106,20 +112,23 @@ node -r dotenv/config dist/main.js auth login --mode env
 引数露出を避けるため、cookie は標準入力でも渡せます。
 
 ```bash
-echo "_note_session_v5=..." | node dist/main.js auth login --cookie-stdin --manual
+echo "_note_session_v5=..." | node apps/note-research-cli/dist/main.cjs auth login --cookie-stdin --manual
 ```
 
 認証情報は `~/.note-research/session.json` (mode 0600) に保存されます。
 
 ## Usage
 
+以下はソースリポジトリのルートから実行する例です。Release archive 内では、
+`node apps/note-research-cli/dist/main.cjs` を `node dist/main.cjs` に読み替えてください。
+
 ```bash
-node dist/main.js search-notes --query "AI" --format json
-node dist/main.js search-notes --query "AI" --format json --profile full
-node dist/main.js competitor analyze --query "AI" --format json
-node dist/main.js report needs --query "AI" --format md
-node dist/main.js user analyze --user <urlname> --format json
-node dist/main.js draft create --title "test" --body-file ./draft.md --format json
+node apps/note-research-cli/dist/main.cjs search-notes --query "AI" --format json
+node apps/note-research-cli/dist/main.cjs search-notes --query "AI" --format json --profile full
+node apps/note-research-cli/dist/main.cjs competitor analyze --query "AI" --format json
+node apps/note-research-cli/dist/main.cjs report needs --query "AI" --format md
+node apps/note-research-cli/dist/main.cjs user analyze --user <urlname> --format json
+node apps/note-research-cli/dist/main.cjs draft create --title "test" --body-file ./draft.md --format json
 ```
 
 ## Output Profile

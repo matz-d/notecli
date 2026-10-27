@@ -1,0 +1,36 @@
+{
+  "data": {
+    "contents": [
+      {
+        "id": 101,
+        "key": "n-user-1",
+        "name": "業務改善の手順",
+        "likeCount": 12,
+        "commentCount": 3,
+        "publishAt": "2026-10-01T09:00:00+09:00",
+        "noteUrl": "https://note.com/example/n/n-user-1",
+        "body": "業務改善の進め方を解説します。",
+        "user": {
+          "name": "Example User",
+          "urlname": "example"
+        }
+      },
+      {
+        "id": 102,
+        "key": "n-user-2",
+        "name": "AI活用の実例",
+        "likeCount": 8,
+        "commentCount": 1,
+        "publishAt": "2026-10-02T09:00:00+09:00",
+        "noteUrl": "https://note.com/example/n/n-user-2",
+        "body": "AI活用の事例を紹介します。",
+        "user": {
+          "name": "Example User",
+          "urlname": "example"
+        }
+      }
+    ],
+    "isLastPage": true,
+    "totalCount": 2
+  }
+}
