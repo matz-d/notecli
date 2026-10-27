@@ -196,6 +196,7 @@ export class NoteApiClient {
     }
 
     const contents: any[] = [];
+    const seenNotes = new Set<string>();
     let currentPage = page;
     let lastPayload: any;
 
@@ -211,7 +212,19 @@ export class NoteApiClient {
         throw new Error("API_ERROR:invalid_user_notes_response");
       }
 
-      contents.push(...pageContents);
+      for (const note of pageContents) {
+        const id = note?.id;
+        const key = note?.key;
+        const identity =
+          id !== undefined && id !== null && String(id) !== ""
+            ? `id:${String(id)}`
+            : key !== undefined && key !== null && String(key) !== ""
+              ? `key:${String(key)}`
+              : undefined;
+        if (identity && seenNotes.has(identity)) continue;
+        if (identity) seenNotes.add(identity);
+        contents.push(note);
+      }
       lastPayload = payload;
 
       // Older responses did not expose isLastPage. In that case, preserve the
